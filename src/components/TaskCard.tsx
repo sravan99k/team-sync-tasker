@@ -9,7 +9,7 @@ interface Task {
   title: string;
   description: string;
   assignedTo: string;
-  status: "todo" | "in-progress" | "completed";
+  status: "todo" | "in-progress" | "pending_approval" | "completed";
   dueDate: string;
   hasFile?: boolean;
 }
@@ -24,12 +24,14 @@ interface TaskCardProps {
 const statusColors = {
   todo: "bg-muted text-muted-foreground",
   "in-progress": "bg-info text-white",
+  "pending_approval": "bg-warning text-white",
   completed: "bg-success text-white"
 };
 
 const statusLabels = {
   todo: "To Do",
-  "in-progress": "In Progress", 
+  "in-progress": "In Progress",
+  "pending_approval": "Pending Approval",
   completed: "Completed"
 };
 

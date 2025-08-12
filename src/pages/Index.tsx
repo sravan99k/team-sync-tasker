@@ -2,18 +2,22 @@ import { useState, useEffect } from "react";
 import { TaskCard } from "@/components/TaskCard";
 import { TeamMember } from "@/components/TeamMember";
 import { CreateTaskDialog } from "@/components/CreateTaskDialog";
+import { CompletedTasks } from "@/components/CompletedTasks";
+import { AdminApproval } from "@/components/AdminApproval";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Settings, Users, BarChart3 } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { Settings, Users, BarChart3, LogOut, CheckSquare, Clock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useNavigate } from "react-router-dom";
 
 interface Task {
   id: string;
   title: string;
   description: string;
   assignedTo: string;
-  status: "todo" | "in-progress" | "completed";
+  status: "todo" | "in-progress" | "pending_approval" | "completed";
   dueDate: string;
   hasFile?: boolean;
 }
@@ -27,7 +31,11 @@ const teamMembers = [
 ];
 
 const Index = () => {
+  const { user, profile, isAdmin, isLoading, signOut } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
+
+  // Initial mock tasks
   const [tasks, setTasks] = useState<Task[]>([
     {
       id: "1",
@@ -50,7 +58,7 @@ const Index = () => {
       title: "Database Schema Design",
       description: "Design and implement the database schema for the application",
       assignedTo: "sravan", 
-      status: "completed",
+      status: "pending_approval",
       dueDate: "2024-12-15",
       hasFile: true,
     },
@@ -64,8 +72,29 @@ const Index = () => {
     },
   ]);
 
-  const [currentUser] = useState("bhavana"); // Admin user
-  const isAdmin = currentUser === "bhavana";
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!isLoading && !user) {
+      navigate('/login');
+    }
+  }, [user, isLoading, navigate]);
+
+  // Show loading state
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Don't render if not authenticated
+  if (!user || !profile) {
+    return null;
+  }
 
   const handleStatusChange = (taskId: string, newStatus: Task["status"]) => {
     setTasks(prev => 
@@ -74,22 +103,28 @@ const Index = () => {
       )
     );
     
+    const statusDisplay = newStatus === "pending_approval" ? "pending approval" : newStatus.replace('-', ' ');
     toast({
       title: "Task Updated",
-      description: `Task status changed to ${newStatus.replace('-', ' ')}`,
+      description: `Task status changed to ${statusDisplay}`,
     });
   };
 
   const handleFileUpload = (taskId: string, file: File) => {
+    // When user uploads file, set status to pending approval
     setTasks(prev =>
       prev.map(task =>
-        task.id === taskId ? { ...task, hasFile: true } : task
+        task.id === taskId ? { 
+          ...task, 
+          hasFile: true, 
+          status: "pending_approval" as Task["status"] 
+        } : task
       )
     );
 
     toast({
       title: "File Uploaded",
-      description: `${file.name} uploaded successfully for task completion`,
+      description: `${file.name} uploaded successfully. Task pending admin approval.`,
     });
   };
 
@@ -113,6 +148,11 @@ const Index = () => {
     });
   };
 
+  const handleSignOut = async () => {
+    await signOut();
+    navigate('/login');
+  };
+
   const getTaskStats = (memberName: string) => {
     const memberTasks = tasks.filter(task => task.assignedTo === memberName);
     return {
@@ -125,6 +165,15 @@ const Index = () => {
     if (!status) return tasks;
     return tasks.filter(task => task.status === status);
   };
+
+  // Filter tasks based on user role
+  const userTasks = isAdmin 
+    ? tasks.filter(task => task.status !== "completed") // Admin sees all non-completed
+    : tasks.filter(task => 
+        task.assignedTo === profile.email?.split('@')[0] && task.status !== "completed"
+      ); // Members see only their non-completed tasks
+
+  const tabCount = isAdmin ? 5 : 4; // Admin has extra tab for approvals
 
   return (
     <div className="min-h-screen bg-background">
@@ -139,11 +188,15 @@ const Index = () => {
             
             <div className="flex items-center space-x-4">
               <Badge variant="outline" className="text-primary border-primary/50">
-                {currentUser} • {isAdmin ? "Admin" : "Developer"}
+                {profile.name} • {isAdmin ? "Admin" : "Developer"}
               </Badge>
               {isAdmin && (
                 <CreateTaskDialog onCreateTask={handleCreateTask} />
               )}
+              <Button variant="outline" size="sm" onClick={handleSignOut}>
+                <LogOut className="h-4 w-4 mr-2" />
+                Sign Out
+              </Button>
             </div>
           </div>
         </div>
@@ -151,11 +204,21 @@ const Index = () => {
 
       <main className="container mx-auto px-4 py-8">
         <Tabs defaultValue="tasks" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className={`grid w-full grid-cols-${tabCount}`}>
             <TabsTrigger value="tasks">
               <BarChart3 className="h-4 w-4 mr-2" />
-              Tasks
+              Active Tasks
             </TabsTrigger>
+            <TabsTrigger value="completed">
+              <CheckSquare className="h-4 w-4 mr-2" />
+              Completed
+            </TabsTrigger>
+            {isAdmin && (
+              <TabsTrigger value="approvals">
+                <Clock className="h-4 w-4 mr-2" />
+                Approvals
+              </TabsTrigger>
+            )}
             <TabsTrigger value="team">
               <Users className="h-4 w-4 mr-2" />
               Team
@@ -176,15 +239,15 @@ const Index = () => {
                 <Badge className="bg-info text-white">
                   In Progress: {filteredTasks("in-progress").length}
                 </Badge>
-                <Badge className="bg-success text-white">
-                  Completed: {filteredTasks("completed").length}
+                <Badge className="bg-warning text-white">
+                  Pending Approval: {filteredTasks("pending_approval").length}
                 </Badge>
               </div>
             </div>
 
             {/* Tasks Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {tasks.map((task) => (
+              {userTasks.map((task) => (
                 <TaskCard
                   key={task.id}
                   task={task}
@@ -194,7 +257,25 @@ const Index = () => {
                 />
               ))}
             </div>
+
+            {userTasks.length === 0 && (
+              <div className="text-center py-12">
+                <p className="text-muted-foreground">
+                  {isAdmin ? "No active tasks to display." : "You have no active tasks assigned."}
+                </p>
+              </div>
+            )}
           </TabsContent>
+
+          <TabsContent value="completed">
+            <CompletedTasks />
+          </TabsContent>
+
+          {isAdmin && (
+            <TabsContent value="approvals">
+              <AdminApproval />
+            </TabsContent>
+          )}
 
           <TabsContent value="team" className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
