@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -18,6 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Plus } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 interface CreateTaskDialogProps {
   onCreateTask: (task: {
@@ -28,16 +29,46 @@ interface CreateTaskDialogProps {
   }) => void;
 }
 
-const teamMembers = ["vathsal", "nagasri", "sravan", "lavanya"];
+interface TeamMember {
+  user_id: string;
+  name: string;
+  role: string;
+}
 
 export function CreateTaskDialog({ onCreateTask }: CreateTaskDialogProps) {
   const [open, setOpen] = useState(false);
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [formData, setFormData] = useState({
     title: "",
     description: "",
     assignedTo: "",
     dueDate: "",
   });
+
+  // Fetch team members from Supabase
+  useEffect(() => {
+    const fetchTeamMembers = async () => {
+      try {
+        const { data, error } = await (supabase as any)
+          .from('profiles')
+          .select('user_id, name, role')
+          .eq('role', 'member'); // Only show members, not admins
+
+        if (error) {
+          console.error('Error fetching team members:', error);
+          return;
+        }
+
+        setTeamMembers(data || []);
+      } catch (error) {
+        console.error('Error fetching team members:', error);
+      }
+    };
+
+    if (open) {
+      fetchTeamMembers();
+    }
+  }, [open]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -95,8 +126,8 @@ export function CreateTaskDialog({ onCreateTask }: CreateTaskDialogProps) {
               </SelectTrigger>
               <SelectContent>
                 {teamMembers.map((member) => (
-                  <SelectItem key={member} value={member} className="capitalize">
-                    {member}
+                  <SelectItem key={member.user_id} value={member.user_id}>
+                    {member.name}
                   </SelectItem>
                 ))}
               </SelectContent>

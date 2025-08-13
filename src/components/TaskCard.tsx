@@ -8,10 +8,11 @@ interface Task {
   id: string;
   title: string;
   description: string;
-  assignedTo: string;
+  assigned_to: string;
+  assigned_to_name: string;
   status: "todo" | "in-progress" | "pending_approval" | "completed";
-  dueDate: string;
-  hasFile?: boolean;
+  due_date: string;
+  file_path?: string;
 }
 
 interface TaskCardProps {
@@ -70,16 +71,16 @@ export function TaskCard({ task, onStatusChange, onFileUpload, isAdmin }: TaskCa
           <div className="flex items-center space-x-2">
             <Avatar className="h-6 w-6">
               <AvatarFallback className="text-xs bg-primary/10 text-primary">
-                {getInitials(task.assignedTo)}
+                {getInitials(task.assigned_to_name)}
               </AvatarFallback>
             </Avatar>
-            <span>{task.assignedTo}</span>
+            <span>{task.assigned_to_name}</span>
           </div>
           <div className="flex items-center space-x-1">
             <Calendar className="h-4 w-4" />
-            <span>{task.dueDate}</span>
+            <span>Due: {task.due_date}</span>
           </div>
-          {task.hasFile && (
+          {task.file_path && (
             <div className="flex items-center space-x-1 text-success">
               <CheckCircle className="h-4 w-4" />
               <span>File attached</span>
