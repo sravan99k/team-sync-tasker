@@ -63,34 +63,43 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   useEffect(() => {
+    console.log('Auth effect starting...');
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        console.log('Auth state change:', event, !!session);
         setSession(session);
         setUser(session?.user ?? null);
         
         if (session?.user) {
+          console.log('Fetching profile for user:', session.user.id);
           // Fetch profile data
           const profileData = await fetchProfile(session.user.id);
+          console.log('Profile data:', profileData);
           setProfile(profileData);
         } else {
           setProfile(null);
         }
         
+        console.log('Setting loading to false');
         setIsLoading(false);
       }
     );
 
     // Check for existing session
     supabase.auth.getSession().then(async ({ data: { session } }) => {
+      console.log('Initial session check:', !!session);
       setSession(session);
       setUser(session?.user ?? null);
       
       if (session?.user) {
+        console.log('Fetching profile for initial session user:', session.user.id);
         const profileData = await fetchProfile(session.user.id);
+        console.log('Initial profile data:', profileData);
         setProfile(profileData);
       }
       
+      console.log('Setting initial loading to false');
       setIsLoading(false);
     });
 
