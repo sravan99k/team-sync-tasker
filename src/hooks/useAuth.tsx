@@ -1,3 +1,4 @@
+
 import { useState, useEffect, createContext, useContext } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
@@ -44,11 +45,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const fetchProfile = async (userId: string) => {
     try {
-      const { data, error } = await (supabase as any)
+      console.log('Starting fetchProfile for userId:', userId);
+      
+      const { data, error } = await supabase
         .from('profiles')
         .select('*')
         .eq('user_id', userId)
         .maybeSingle();
+
+      console.log('Profile query result - data:', data, 'error:', error);
 
       if (error) {
         console.error('Error fetching profile:', error);
@@ -57,7 +62,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       return data;
     } catch (error) {
-      console.error('Error fetching profile:', error);
+      console.error('Exception in fetchProfile:', error);
       return null;
     }
   };
