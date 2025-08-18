@@ -1,8 +1,10 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
-import { Upload, User, Calendar, CheckCircle } from "lucide-react";
+import { Upload, User, Calendar, CheckCircle, Download } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 interface Task {
   id: string;
@@ -10,7 +12,7 @@ interface Task {
   description: string;
   assigned_to: string;
   assigned_to_name: string;
-  status: "todo" | "in-progress" | "pending_approval" | "completed";
+  status: "todo" | "in_progress" | "pending_approval" | "completed";
   due_date: string;
   file_path?: string;
 }
@@ -24,23 +26,65 @@ interface TaskCardProps {
 
 const statusColors = {
   todo: "bg-muted text-muted-foreground",
-  "in-progress": "bg-info text-white",
+  "in_progress": "bg-info text-white",
   "pending_approval": "bg-warning text-white",
   completed: "bg-success text-white"
 };
 
 const statusLabels = {
   todo: "To Do",
-  "in-progress": "In Progress",
+  "in_progress": "In Progress",
   "pending_approval": "Pending Approval",
   completed: "Completed"
 };
 
 export function TaskCard({ task, onStatusChange, onFileUpload, isAdmin }: TaskCardProps) {
+  const { toast } = useToast();
+
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
       onFileUpload(task.id, file);
+    }
+  };
+
+  const downloadFile = async (filePath: string) => {
+    try {
+      const { data, error } = await supabase.storage
+        .from('task-files')
+        .download(filePath);
+
+      if (error) {
+        console.error('Error downloading file:', error);
+        toast({
+          title: "Error",
+          description: "Failed to download file",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Create download link
+      const url = URL.createObjectURL(data);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filePath.split('/').pop() || 'file';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      toast({
+        title: "Download Started",
+        description: "File download started successfully.",
+      });
+    } catch (error) {
+      console.error('Error downloading file:', error);
+      toast({
+        title: "Error",
+        description: "Failed to download file",
+        variant: "destructive",
+      });
     }
   };
 
@@ -84,6 +128,14 @@ export function TaskCard({ task, onStatusChange, onFileUpload, isAdmin }: TaskCa
             <div className="flex items-center space-x-1 text-success">
               <CheckCircle className="h-4 w-4" />
               <span>File attached</span>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => downloadFile(task.file_path!)}
+                className="h-auto p-1 text-success hover:text-success/80"
+              >
+                <Download className="h-3 w-3" />
+              </Button>
             </div>
           )}
         </div>
@@ -96,14 +148,14 @@ export function TaskCard({ task, onStatusChange, onFileUpload, isAdmin }: TaskCa
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => onStatusChange(task.id, "in-progress")}
+                onClick={() => onStatusChange(task.id, "in_progress")}
                 className="flex-1"
               >
                 Start Task
               </Button>
             )}
             
-            {task.status === "in-progress" && (
+            {task.status === "in_progress" && (
               <>
                 <input
                   type="file"
@@ -142,7 +194,7 @@ export function TaskCard({ task, onStatusChange, onFileUpload, isAdmin }: TaskCa
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => onStatusChange(task.id, "in-progress")}
+                onClick={() => onStatusChange(task.id, "in_progress")}
                 className="flex-1"
               >
                 Reopen Task

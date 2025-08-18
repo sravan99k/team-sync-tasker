@@ -47,17 +47,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       console.log('Starting fetchProfile for userId:', userId);
       
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Profile fetch timeout')), 10000)
-      );
-      
-      const queryPromise = supabase
+      const { data, error } = await supabase
         .from('profiles')
         .select('*')
         .eq('user_id', userId)
         .maybeSingle();
-
-      const { data, error } = await Promise.race([queryPromise, timeoutPromise]) as any;
 
       console.log('Profile query result - data:', data, 'error:', error);
 

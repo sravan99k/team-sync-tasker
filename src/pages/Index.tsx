@@ -19,7 +19,7 @@ interface Task {
   description: string;
   assigned_to: string;
   assigned_to_name: string;
-  status: "todo" | "in-progress" | "pending_approval" | "completed";
+  status: "todo" | "in_progress" | "pending_approval" | "completed";
   due_date: string;
   file_path?: string;
   created_by: string;
@@ -49,7 +49,7 @@ const Index = () => {
       setTasksLoading(true);
       
       // Query based on user role
-      let query = (supabase as any)
+      let query = supabase
         .from('tasks')
         .select(`
           id,
@@ -104,7 +104,7 @@ const Index = () => {
   // Fetch team members
   const fetchTeamMembers = async () => {
     try {
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('profiles')
         .select('*');
 
@@ -153,7 +153,7 @@ const Index = () => {
 
   const handleStatusChange = async (taskId: string, newStatus: Task["status"]) => {
     try {
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from('tasks')
         .update({ status: newStatus })
         .eq('id', taskId);
@@ -204,7 +204,7 @@ const Index = () => {
       }
 
       // Update task with file path and status
-      const { error: updateError } = await (supabase as any)
+      const { error: updateError } = await supabase
         .from('tasks')
         .update({ 
           file_path: fileName, 
@@ -251,7 +251,7 @@ const Index = () => {
     if (!profile) return;
 
     try {
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('tasks')
         .insert({
           title: taskData.title,
@@ -391,7 +391,7 @@ const Index = () => {
                   To Do: {filteredTasks("todo").length}
                 </Badge>
                 <Badge className="bg-info text-white">
-                  In Progress: {filteredTasks("in-progress").length}
+                  In Progress: {filteredTasks("in_progress").length}
                 </Badge>
                 <Badge className="bg-warning text-white">
                   Pending Approval: {filteredTasks("pending_approval").length}

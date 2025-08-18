@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CheckCircle, Clock, Download, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 interface PendingTask {
   id: string;
@@ -20,37 +21,74 @@ export function AdminApproval() {
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
 
-  // Mock data for now - will be replaced with real database queries
   useEffect(() => {
-    // Simulate loading
-    setTimeout(() => {
-      setPendingTasks([
-        {
-          id: "1",
-          title: "Website Header Component",
-          description: "Create responsive header with navigation menu",
-          assignedTo: "vathsal",
-          assignedToName: "Vathsal",
-          filePath: "header-component.zip",
-          submittedAt: new Date().toISOString(),
-        },
-        {
-          id: "2", 
-          title: "User Authentication API",
-          description: "Implement login/logout functionality",
-          assignedTo: "sravan",
-          assignedToName: "Sravan", 
-          filePath: "auth-api.zip",
-          submittedAt: new Date().toISOString(),
-        }
-      ]);
-      setIsLoading(false);
-    }, 1000);
+    fetchPendingTasks();
   }, []);
+
+  const fetchPendingTasks = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('tasks')
+        .select(`
+          *,
+          assignee:profiles!assigned_to(name, email)
+        `)
+        .eq('status', 'pending_approval');
+
+      if (error) {
+        console.error('Error fetching pending tasks:', error);
+        toast({
+          title: "Error",
+          description: "Failed to fetch pending tasks",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const formattedTasks: PendingTask[] = data.map(task => ({
+        id: task.id,
+        title: task.title,
+        description: task.description || '',
+        assignedTo: task.assigned_to,
+        assignedToName: task.assignee?.name || 'Unknown',
+        filePath: task.file_path || undefined,
+        submittedAt: task.updated_at,
+      }));
+
+      setPendingTasks(formattedTasks);
+    } catch (error) {
+      console.error('Error fetching pending tasks:', error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch pending tasks",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleApprove = async (taskId: string) => {
     try {
-      // TODO: Update task status to 'completed' in database
+      const { error } = await supabase
+        .from('tasks')
+        .update({ 
+          status: 'completed',
+          approved_by: (await supabase.auth.getUser()).data.user?.id,
+          approved_at: new Date().toISOString()
+        })
+        .eq('id', taskId);
+
+      if (error) {
+        console.error('Error approving task:', error);
+        toast({
+          title: "Error",
+          description: "Failed to approve task. Please try again.",
+          variant: "destructive",
+        });
+        return;
+      }
+
       setPendingTasks(prev => prev.filter(task => task.id !== taskId));
       toast({
         title: "Task Approved",
@@ -67,7 +105,21 @@ export function AdminApproval() {
 
   const handleReject = async (taskId: string) => {
     try {
-      // TODO: Update task status back to 'in_progress' in database
+      const { error } = await supabase
+        .from('tasks')
+        .update({ status: 'in_progress' })
+        .eq('id', taskId);
+
+      if (error) {
+        console.error('Error rejecting task:', error);
+        toast({
+          title: "Error", 
+          description: "Failed to reject task. Please try again.",
+          variant: "destructive",
+        });
+        return;
+      }
+
       setPendingTasks(prev => prev.filter(task => task.id !== taskId));
       toast({
         title: "Task Rejected",
@@ -84,11 +136,43 @@ export function AdminApproval() {
   };
 
   const downloadFile = async (filePath: string, fileName: string) => {
-    // TODO: Implement file download from Supabase storage
-    toast({
-      title: "Download Started",
-      description: `Downloading ${fileName}...`,
-    });
+    try {
+      const { data, error } = await supabase.storage
+        .from('task-files')
+        .download(filePath);
+
+      if (error) {
+        console.error('Error downloading file:', error);
+        toast({
+          title: "Error",
+          description: "Failed to download file",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Create download link
+      const url = URL.createObjectURL(data);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      toast({
+        title: "Download Started",
+        description: `Downloading ${fileName}...`,
+      });
+    } catch (error) {
+      console.error('Error downloading file:', error);
+      toast({
+        title: "Error",
+        description: "Failed to download file",
+        variant: "destructive",
+      });
+    }
   };
 
   if (isLoading) {
