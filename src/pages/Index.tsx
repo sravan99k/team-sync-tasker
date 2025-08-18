@@ -4,6 +4,7 @@ import { TeamMember } from "@/components/TeamMember";
 import { CreateTaskDialog } from "@/components/CreateTaskDialog";
 import { CompletedTasks } from "@/components/CompletedTasks";
 import { AdminApproval } from "@/components/AdminApproval";
+import { AddTeamMemberDialog } from "@/components/AddTeamMemberDialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -432,6 +433,12 @@ const Index = () => {
           )}
 
           <TabsContent value="team" className="space-y-6">
+            {isAdmin && (
+              <div className="flex justify-between items-center">
+                <h2 className="text-2xl font-bold text-foreground">Team Members</h2>
+                <AddTeamMemberDialog onMemberAdded={fetchTeamMembers} />
+              </div>
+            )}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {teamMembers.map((member) => {
                 const stats = getTaskStats(member.user_id);
