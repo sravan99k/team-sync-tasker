@@ -18,8 +18,8 @@ interface Task {
   id: string;
   title: string;
   description: string;
-  assigned_to: string;
-  assigned_to_name: string;
+  assigned_to?: string; // Legacy field, kept for compatibility
+  assignees: { user_id: string; name: string }[];
   status: "todo" | "in_progress" | "pending_approval" | "completed";
   due_date: string;
   file_path?: string;
@@ -49,26 +49,23 @@ const Index = () => {
     try {
       setTasksLoading(true);
       
-      // Query based on user role
+      // Query tasks with their assignments
       let query = supabase
         .from('tasks')
         .select(`
           id,
           title,
           description,
-          assigned_to,
           status,
           due_date,
           file_path,
           created_by,
-          profiles!tasks_assigned_to_fkey(name)
+          task_assignments(
+            assigned_to,
+            profiles(user_id, name)
+          )
         `)
         .neq('status', 'completed');
-
-      // If not admin, only show user's tasks
-      if (!isAdmin) {
-        query = query.eq('assigned_to', profile.user_id);
-      }
 
       const { data, error } = await query;
 
@@ -82,17 +79,26 @@ const Index = () => {
         return;
       }
 
-      const formattedTasks = data?.map((task: any) => ({
+      let formattedTasks = data?.map((task: any) => ({
         id: task.id,
         title: task.title,
         description: task.description || '',
-        assigned_to: task.assigned_to,
-        assigned_to_name: task.profiles?.name || '',
+        assignees: task.task_assignments?.map((assignment: any) => ({
+          user_id: assignment.assigned_to,
+          name: assignment.profiles?.name || ''
+        })) || [],
         status: task.status as Task['status'],
         due_date: task.due_date || '',
         file_path: task.file_path,
         created_by: task.created_by,
       })) || [];
+
+      // If not admin, only show user's tasks
+      if (!isAdmin) {
+        formattedTasks = formattedTasks.filter(task => 
+          task.assignees.some(assignee => assignee.user_id === profile.user_id)
+        );
+      }
 
       setTasks(formattedTasks);
     } catch (error) {
@@ -246,37 +252,28 @@ const Index = () => {
   const handleCreateTask = async (taskData: {
     title: string;
     description: string;
-    assignedTo: string;
+    assignedTo: string[];
     dueDate: string;
   }) => {
     if (!profile) return;
 
     try {
-      const { data, error } = await supabase
+      // First create the task with a dummy assigned_to (since it's required in current schema)
+      const { data: taskData_result, error: taskError } = await supabase
         .from('tasks')
         .insert({
           title: taskData.title,
           description: taskData.description,
-          assigned_to: taskData.assignedTo,
+          assigned_to: taskData.assignedTo[0], // Use first assignee for legacy field
           due_date: taskData.dueDate,
           created_by: profile.user_id,
           status: 'todo'
         })
-        .select(`
-          id,
-          title,
-          description,
-          assigned_to,
-          status,
-          due_date,
-          file_path,
-          created_by,
-          profiles!tasks_assigned_to_fkey(name)
-        `)
+        .select('id')
         .single();
 
-      if (error) {
-        console.error('Error creating task:', error);
+      if (taskError) {
+        console.error('Error creating task:', taskError);
         toast({
           title: "Error",
           description: "Failed to create task",
@@ -285,25 +282,33 @@ const Index = () => {
         return;
       }
 
-      // Add new task to local state
-      const newTask: Task = {
-        id: data.id,
-        title: data.title,
-        description: data.description || '',
-        assigned_to: data.assigned_to,
-        assigned_to_name: data.profiles?.name || '',
-        status: data.status as Task['status'],
-        due_date: data.due_date || '',
-        file_path: data.file_path,
-        created_by: data.created_by,
-      };
-      
-      setTasks(prev => [...prev, newTask]);
-      
+      // Then create the task assignments
+      const assignments = taskData.assignedTo.map(userId => ({
+        task_id: taskData_result.id,
+        assigned_to: userId
+      }));
+
+      const { error: assignmentError } = await supabase
+        .from('task_assignments')
+        .insert(assignments);
+
+      if (assignmentError) {
+        console.error('Error creating task assignments:', assignmentError);
+        toast({
+          title: "Error",
+          description: "Failed to assign task to members",
+          variant: "destructive",
+        });
+        return;
+      }
+
       toast({
-        title: "Task Created",
-        description: `New task assigned to ${newTask.assigned_to_name}`,
+        title: "Success",
+        description: "Task created successfully",
       });
+
+      // Refresh tasks
+      fetchTasks();
     } catch (error) {
       console.error('Error creating task:', error);
     }
@@ -315,7 +320,9 @@ const Index = () => {
   };
 
   const getTaskStats = (memberUserId: string) => {
-    const memberTasks = tasks.filter(task => task.assigned_to === memberUserId);
+    const memberTasks = tasks.filter(task => 
+      task.assignees.some(assignee => assignee.user_id === memberUserId)
+    );
     return {
       active: memberTasks.filter(task => task.status !== "completed").length,
       completed: 0, // Will be calculated from completed tasks later

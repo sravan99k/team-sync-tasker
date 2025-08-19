@@ -10,13 +10,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Plus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -24,7 +19,7 @@ interface CreateTaskDialogProps {
   onCreateTask: (task: {
     title: string;
     description: string;
-    assignedTo: string;
+    assignedTo: string[];
     dueDate: string;
   }) => void;
 }
@@ -41,7 +36,7 @@ export function CreateTaskDialog({ onCreateTask }: CreateTaskDialogProps) {
   const [formData, setFormData] = useState({
     title: "",
     description: "",
-    assignedTo: "",
+    assignedTo: [] as string[],
     dueDate: "",
   });
 
@@ -72,11 +67,20 @@ export function CreateTaskDialog({ onCreateTask }: CreateTaskDialogProps) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (formData.title && formData.assignedTo && formData.dueDate) {
+    if (formData.title && formData.assignedTo.length > 0 && formData.dueDate) {
       onCreateTask(formData);
-      setFormData({ title: "", description: "", assignedTo: "", dueDate: "" });
+      setFormData({ title: "", description: "", assignedTo: [], dueDate: "" });
       setOpen(false);
     }
+  };
+
+  const handleAssigneeToggle = (userId: string) => {
+    setFormData(prev => ({
+      ...prev,
+      assignedTo: prev.assignedTo.includes(userId)
+        ? prev.assignedTo.filter(id => id !== userId)
+        : [...prev.assignedTo, userId]
+    }));
   };
 
   return (
@@ -115,23 +119,28 @@ export function CreateTaskDialog({ onCreateTask }: CreateTaskDialogProps) {
           </div>
           
           <div className="space-y-2">
-            <Label>Assign To</Label>
-            <Select
-              value={formData.assignedTo}
-              onValueChange={(value) => setFormData({ ...formData, assignedTo: value })}
-              required
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select team member" />
-              </SelectTrigger>
-              <SelectContent>
+            <Label>Assign To (Select multiple members)</Label>
+            <ScrollArea className="h-32 w-full border rounded-md p-2">
+              <div className="space-y-2">
                 {teamMembers.map((member) => (
-                  <SelectItem key={member.user_id} value={member.user_id}>
-                    {member.name}
-                  </SelectItem>
+                  <div key={member.user_id} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={member.user_id}
+                      checked={formData.assignedTo.includes(member.user_id)}
+                      onCheckedChange={() => handleAssigneeToggle(member.user_id)}
+                    />
+                    <Label htmlFor={member.user_id} className="text-sm font-normal">
+                      {member.name}
+                    </Label>
+                  </div>
                 ))}
-              </SelectContent>
-            </Select>
+              </div>
+            </ScrollArea>
+            {formData.assignedTo.length > 0 && (
+              <p className="text-sm text-muted-foreground">
+                {formData.assignedTo.length} member(s) selected
+              </p>
+            )}
           </div>
           
           <div className="space-y-2">

@@ -10,8 +10,8 @@ interface Task {
   id: string;
   title: string;
   description: string;
-  assigned_to: string;
-  assigned_to_name: string;
+  assigned_to?: string; // Legacy field, kept for compatibility
+  assignees: { user_id: string; name: string }[];
   status: "todo" | "in_progress" | "pending_approval" | "completed";
   due_date: string;
   file_path?: string;
@@ -89,7 +89,52 @@ export function TaskCard({ task, onStatusChange, onFileUpload, isAdmin }: TaskCa
   };
 
   const getInitials = (name: string) => {
-    return name.split(' ').map(n => n[0]).join('').toUpperCase();
+    return name
+      .split(' ')
+      .map(word => word[0])
+      .join('')
+      .toUpperCase();
+  };
+
+  const renderAssignees = () => {
+    if (task.assignees.length === 0) return null;
+    
+    if (task.assignees.length === 1) {
+      const assignee = task.assignees[0];
+      return (
+        <div className="flex items-center space-x-2">
+          <Avatar className="h-6 w-6">
+            <AvatarFallback className="text-xs bg-primary/10 text-primary">
+              {getInitials(assignee.name)}
+            </AvatarFallback>
+          </Avatar>
+          <span className="text-sm text-muted-foreground">{assignee.name}</span>
+        </div>
+      );
+    }
+    
+    // Multiple assignees
+    return (
+      <div className="flex items-center space-x-2">
+        <div className="flex -space-x-2">
+          {task.assignees.slice(0, 3).map((assignee, index) => (
+            <Avatar key={assignee.user_id} className="h-6 w-6 border-2 border-background">
+              <AvatarFallback className="text-xs bg-primary/10 text-primary">
+                {getInitials(assignee.name)}
+              </AvatarFallback>
+            </Avatar>
+          ))}
+          {task.assignees.length > 3 && (
+            <div className="h-6 w-6 rounded-full bg-muted border-2 border-background flex items-center justify-center">
+              <span className="text-xs text-muted-foreground">+{task.assignees.length - 3}</span>
+            </div>
+          )}
+        </div>
+        <span className="text-sm text-muted-foreground">
+          {task.assignees.length} assignees
+        </span>
+      </div>
+    );
   };
 
   return (
@@ -112,14 +157,7 @@ export function TaskCard({ task, onStatusChange, onFileUpload, isAdmin }: TaskCa
 
       <CardContent className="pb-3">
         <div className="flex items-center space-x-4 text-sm text-muted-foreground">
-          <div className="flex items-center space-x-2">
-            <Avatar className="h-6 w-6">
-              <AvatarFallback className="text-xs bg-primary/10 text-primary">
-                {getInitials(task.assigned_to_name)}
-              </AvatarFallback>
-            </Avatar>
-            <span>{task.assigned_to_name}</span>
-          </div>
+          {renderAssignees()}
           <div className="flex items-center space-x-1">
             <Calendar className="h-4 w-4" />
             <span>Due: {task.due_date}</span>

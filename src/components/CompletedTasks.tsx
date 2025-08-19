@@ -11,8 +11,7 @@ interface CompletedTask {
   id: string;
   title: string;
   description: string;
-  assignedTo: string;
-  assignedToName: string;
+  assignees: { user_id: string; name: string }[];
   dueDate: string;
   filePath?: string;
   approvedBy?: string;
@@ -33,41 +32,56 @@ export function CompletedTasks() {
 
   const fetchCompletedTasks = async () => {
     try {
-      // TODO: Replace with actual database query once types are updated
-      // Mock completed tasks for now
-      const mockTasks: CompletedTask[] = [
-        {
-          id: "1",
-          title: "Website Header Component",
-          description: "Create responsive header with navigation menu",
-          assignedTo: "vathsal",
-          assignedToName: "Vathsal",
-          dueDate: "2024-08-15",
-          filePath: "header-component.zip",
-          approvedBy: "bhavana",
-          approvedByName: "Bhavana",
-          approvedAt: new Date().toISOString(),
-        },
-        {
-          id: "2",
-          title: "User Authentication API", 
-          description: "Implement login/logout functionality",
-          assignedTo: "sravan",
-          assignedToName: "Sravan",
-          dueDate: "2024-08-10",
-          filePath: "auth-api.zip",
-          approvedBy: "bhavana",
-          approvedByName: "Bhavana",
-          approvedAt: new Date().toISOString(),
-        }
-      ];
+      // Query completed tasks with their assignments
+      let query = supabase
+        .from('tasks')
+        .select(`
+          id,
+          title,
+          description,
+          due_date,
+          file_path,
+          approved_by,
+          approved_at,
+          task_assignments(
+            assigned_to,
+            profiles(user_id, name)
+          ),
+          profiles!tasks_approved_by_fkey(name)
+        `)
+        .eq('status', 'completed');
 
-      // Filter tasks based on user role
-      const filteredTasks = isAdmin 
-        ? mockTasks 
-        : mockTasks.filter(task => task.assignedTo === profile?.email?.split('@')[0]);
+      const { data, error } = await query;
 
-      setTasks(filteredTasks);
+      if (error) {
+        console.error('Error fetching completed tasks:', error);
+        return;
+      }
+
+      const formattedTasks = data?.map((task: any) => ({
+        id: task.id,
+        title: task.title,
+        description: task.description || '',
+        assignees: task.task_assignments?.map((assignment: any) => ({
+          user_id: assignment.assigned_to,
+          name: assignment.profiles?.name || ''
+        })) || [],
+        dueDate: task.due_date || '',
+        filePath: task.file_path,
+        approvedBy: task.approved_by,
+        approvedByName: task.profiles?.name || '',
+        approvedAt: task.approved_at,
+      })) || [];
+
+      // If not admin, only show user's tasks
+      let finalTasks = formattedTasks;
+      if (!isAdmin && profile) {
+        finalTasks = formattedTasks.filter(task => 
+          task.assignees.some(assignee => assignee.user_id === profile.user_id)
+        );
+      }
+
+      setTasks(finalTasks);
     } catch (error) {
       console.error('Error fetching completed tasks:', error);
     } finally {
@@ -137,15 +151,33 @@ export function CompletedTasks() {
               </CardHeader>
               
               <CardContent className="space-y-4">
-                <div className="flex items-center space-x-4 text-sm text-muted-foreground">
-                  <div className="flex items-center space-x-2">
-                    <Avatar className="h-6 w-6">
-                      <AvatarFallback className="text-xs bg-primary/10 text-primary">
-                        {getInitials(task.assignedToName)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <span>{task.assignedToName}</span>
-                  </div>
+                 <div className="flex items-center space-x-4 text-sm text-muted-foreground">
+                   <div className="flex items-center space-x-2">
+                     {task.assignees.length > 0 && (
+                       <>
+                         <div className="flex -space-x-2">
+                           {task.assignees.slice(0, 3).map((assignee) => (
+                             <Avatar key={assignee.user_id} className="h-6 w-6 border-2 border-background">
+                               <AvatarFallback className="text-xs bg-primary/10 text-primary">
+                                 {getInitials(assignee.name)}
+                               </AvatarFallback>
+                             </Avatar>
+                           ))}
+                           {task.assignees.length > 3 && (
+                             <div className="h-6 w-6 rounded-full bg-muted border-2 border-background flex items-center justify-center">
+                               <span className="text-xs text-muted-foreground">+{task.assignees.length - 3}</span>
+                             </div>
+                           )}
+                         </div>
+                         <span>
+                           {task.assignees.length === 1 
+                             ? task.assignees[0].name 
+                             : `${task.assignees.length} assignees`
+                           }
+                         </span>
+                       </>
+                     )}
+                   </div>
                   <div className="flex items-center space-x-1">
                     <Calendar className="h-4 w-4" />
                     <span>Due: {task.dueDate}</span>

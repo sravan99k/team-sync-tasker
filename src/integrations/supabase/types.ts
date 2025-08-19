@@ -44,6 +44,35 @@ export type Database = {
         }
         Relationships: []
       }
+      task_assignments: {
+        Row: {
+          assigned_to: string
+          created_at: string
+          id: string
+          task_id: string
+        }
+        Insert: {
+          assigned_to: string
+          created_at?: string
+          id?: string
+          task_id: string
+        }
+        Update: {
+          assigned_to?: string
+          created_at?: string
+          id?: string
+          task_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_assignments_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tasks: {
         Row: {
           approved_at: string | null
