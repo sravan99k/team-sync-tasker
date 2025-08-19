@@ -66,16 +66,16 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
   };
 
   return (
-    <Card className="w-full max-w-md mx-auto">
-      <CardHeader className="space-y-1">
-        <CardTitle className="text-2xl font-bold text-center">Task Tracker Login</CardTitle>
-        <CardDescription className="text-center">
+    <Card className="w-full shadow-lg border-0 bg-white/95 backdrop-blur-sm">
+      <CardHeader className="space-y-1 px-4 sm:px-6 pt-6 pb-4">
+        <CardTitle className="text-xl sm:text-2xl font-bold text-center text-slate-800">Task Tracker Login</CardTitle>
+        <CardDescription className="text-center text-slate-600 text-sm">
           Enter your credentials to access the task tracker
         </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="px-4 sm:px-6 pb-6">
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3 sm:space-y-4">
             <FormField
               control={form.control}
               name="email"
@@ -123,15 +123,15 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
           </form>
         </Form>
         
-        <div className="mt-6 text-sm text-muted-foreground">
-          <p className="text-center font-medium mb-2">Team Login Credentials:</p>
-          <div className="space-y-1 text-xs">
+        <div className="mt-4 sm:mt-6 text-sm text-slate-500">
+          <p className="text-center font-medium mb-2 text-slate-700">Team Login Credentials:</p>
+          <div className="space-y-1 text-xs bg-slate-50 rounded-lg p-3">
             <div>• Vathsal: vathsal@gmail.com</div>
             <div>• Nagasri: nagasri@gmail.com</div>
             <div>• Sravan: sravan@gmail.com</div>
             <div>• Lavanya: lavanya@gmail.com</div>
             <div>• Bhavana (Admin): bhavana@gmail.com</div>
-            <div className="mt-2">Password for all: 12345678</div>
+            <div className="mt-2 font-medium text-slate-600">Password for all: 12345678</div>
           </div>
         </div>
       </CardContent>

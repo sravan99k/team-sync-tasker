@@ -23,9 +23,9 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background/95 to-primary/5 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-grid-white/[0.02] bg-grid-black/[0.02]" />
-      <div className="relative z-10">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 flex items-center justify-center p-3 sm:p-4 md:p-6">
+      <div className="absolute inset-0 bg-grid-slate-100/50" />
+      <div className="relative z-10 w-full max-w-sm sm:max-w-md">
         <LoginForm onSuccess={handleLoginSuccess} />
       </div>
     </div>
